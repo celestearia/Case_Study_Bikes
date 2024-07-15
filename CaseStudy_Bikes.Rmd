@@ -1,0 +1,168 @@
+---
+title: "Cyclistic Bike-Share Analysis Case Study"
+author: "John Paul Celeste"
+date: "2024-04-10"
+output: 
+  html_document:
+    theme: cosmo
+    highlight: tango
+    toc: true
+    toc_depth: 2
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+# Beautify pdf output
+opts_chunk$set(tidy.opts=list(width.cutoff=60), tidy=TRUE)
+# Beautify HTML output
+opts_chunk$set(fig.width=10, fig.height=6)
+```
+
+## Introduction
+
+My name is John Paul Celeste, a junior data analyst with a background in computer science and extensive experience in customer service and technical support. In this case study, I will analyze Cyclistic bike-share data to understand how casual riders and annual members use Cyclistic bikes differently. This analysis will support the marketing team’s goal of converting casual riders into annual members.
+
+## Business Task
+
+The primary business task is to analyze Cyclistic’s historical bike trip data to identify differences in usage patterns between casual riders and annual members. These insights will inform the design of targeted marketing strategies to convert casual riders into annual members.
+
+## Data Sources
+
+The data sources include the historical trip data provided by Cyclistic for the previous 12 months. The data encompasses trip duration, start and end times, bike types, and user types (casual or member). The data is publicly available and ensures user privacy by not including personally identifiable information.
+
+### 2019 Q1 Data
+- **File**: `Divvy_Trips_2019_Q1.csv`
+- **Size**: Approximately 10.7 MB
+- **Number of Rows**: 1,153,998
+- **Number of Variables**: 12
+
+### 2020 Q1 Data
+- **File**: `Divvy_Trips_2020_Q1.csv`
+- **Size**: Approximately 12.6 MB
+- **Number of Rows**: 1,346,185
+- **Number of Variables**: 12
+
+The variables included in these datasets are:
+
+- `ride_id`: Unique identifier for each ride
+- `rideable_type`: Type of bike used for the ride
+- `started_at`: Start time of the ride
+- `ended_at`: End time of the ride
+- `start_station_name`: Name of the start station
+- `start_station_id`: Identifier for the start station
+- `end_station_name`: Name of the end station
+- `end_station_id`: Identifier for the end station
+- `start_lat`: Latitude of the start location
+- `start_lng`: Longitude of the start location
+- `end_lat`: Latitude of the end location
+- `end_lng`: Longitude of the end location
+- `member_casual`: Type of rider (member or casual)
+
+
+## Data Cleaning and Preparation
+```{r cleaning}
+# Load Data, update path as needed
+trips_2019_Q1 <- read_csv("Divvy_Trips_2019_Q1.csv")
+trips_2020_Q1 <- read_csv("Divvy_Trips_2020_Q1.csv")
+# Combine datasets
+trips <- bind_rows(trips_2019_Q1, trips_2020_Q1)
+
+# Convert date columns to datetime format
+trips <- trips %>%
+  mutate(started_at = ymd_hms(started_at),
+         ended_at = ymd_hms(ended_at))
+
+# Create ride_length and day_of_week columns
+trips <- trips %>%
+  mutate(ride_length = as.numeric(difftime(ended_at, started_at, units = "mins")),
+         day_of_week = wday(started_at, label = TRUE))
+
+# Remove NA values and any negative ride lengths
+trips <- trips %>%
+  filter(!is.na(ride_length) & ride_length > 0)
+```
+1. **Combining Datasets:** Merging the datasets from 2019 and 2020 allows us to analyze a more extensive data range, providing a better understanding of trends and patterns.
+
+2. **Datetime Conversion:** Converting date columns to datetime format is crucial for accurate time-based analysis.
+
+3. **Creating New Variables:** The ride_length and day_of_week variables help us understand the duration of trips and the distribution of rides across different days.
+
+4. **Data Cleaning:** Removing NA values and negative ride lengths ensures data integrity and prevents skewed analysis results.
+
+## Data Analysis
+### Average Ride Length
+```{r avg_length}
+# Summary statistics
+summary_stats <- trips %>%
+  group_by(member_casual) %>%
+  summarise(avg_ride_length = mean(ride_length),
+            max_ride_length = max(ride_length),
+            num_rides = n())
+
+# Average ride length by day of the week
+avg_ride_length_by_day <- trips %>%
+  group_by(member_casual, day_of_week) %>%
+  summarise(avg_ride_length = mean(ride_length))
+
+# Number of rides by day of the week
+num_rides_by_day <- trips %>%
+  group_by(member_casual, day_of_week) %>%
+  summarise(num_rides = n())
+```
+
+1. **Summary Statistics:** Calculating average and maximum ride lengths and the number of rides provides an overview of usage patterns.
+2. **Ride Length and Day Analysis:** Understanding how ride lengths vary by day and comparing the number of rides across days helps identify peak usage times and potential differences in behavior between members and casual riders.
+
+### Visualizations
+```{r bikes_visuals}
+# Average ride length by member type
+ggplot(summary_stats, aes(x=member_casual, y=avg_ride_length, fill=member_casual)) +
+  geom_bar(stat="identity") +
+  labs(title="Average Ride Length by Member Type", x="Member Type", y="Average Ride Length (minutes)") +
+  theme_minimal()
+
+# Average ride length by day of the week
+ggplot(avg_ride_length_by_day, aes(x=day_of_week, y=avg_ride_length, fill=member_casual)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  labs(title="Average Ride Length by Day of the Week", x="Day of the Week", y="Average Ride Length (minutes)") +
+  theme_minimal()
+
+# Number of rides by day of the week
+ggplot(num_rides_by_day, aes(x=day_of_week, y=num_rides, fill=member_casual)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  labs(title="Number of Rides by Day of the Week", x="Day of the Week", y="Number of Rides") +
+  theme_minimal()
+```
+
+1. **Bar Charts:** Bar charts are used to compare the average ride lengths and number of rides between members and casual riders. They are effective for showing differences in magnitude.
+
+2. **Day of the Week Analysis:** Visualizing ride lengths and counts by day of the week helps identify usage patterns that can inform targeted marketing strategies.
+
+### Summary of Analysis
+* Annual members have shorter average ride lengths compared to casual riders.
+* Casual riders tend to use the bikes more on weekends, while annual members use them more consistently throughout the week.
+* The number of rides is higher for annual members compared to casual riders on weekdays.
+
+
+## Key Findings and Recommendations
+### Key Findings
+1. **Average Ride Length:** Casual riders tend to have longer average ride lengths compared to members, suggesting they use the service more for leisure than for commuting.
+
+2. **Usage by Day of the Week:** Members have a consistent usage pattern throughout the week, while casual riders show increased usage on weekends.
+
+3. **Usage by Time of Day:** Members primarily use the bikes during morning and evening commute hours, whereas casual riders use them more sporadically throughout the day.
+
+### Recommendations
+1. **Targeted Campaigns:** Develop campaigns that emphasize the convenience and cost savings of annual memberships, especially highlighting benefits for regular commuters.
+
+2. **Weekend Promotions:** Offer promotions or discounts for annual memberships during weekends when casual rider usage peaks.
+
+3. **In-app Engagement:** Utilize digital media to engage casual riders with personalized in-app messages and offers based on their usage patterns, encouraging them to switch to annual memberships.
+
+
+## Conclusion
+By understanding the differences in usage patterns between annual members and casual riders, Cyclistic can tailor its marketing strategies to convert more casual riders into annual members, thereby increasing profitability and ensuring future growth.
